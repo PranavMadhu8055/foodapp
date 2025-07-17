@@ -12,4 +12,8 @@ class Colors1 {
   static Color lightGreyBlue = const Color(0xFFF0F5FA);
   static Color mediumGreyBlue = const Color(0xFFB4B9CA);
   static Color lightSteelBlue = const Color(0xFF98A8B8);
+  static Color lightyellow = const Color(0xFFFFD27C); // Defined lightyellow
+    static Color menuGreyBack = const Color(0xFFF6F8FA); // Defined lightyellow
+        static Color circleAvatarBackGrey = const Color(0xFFECF0F4); // Defined lightyellow
+
 }

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:foodapp/app_routes.dart';
 import 'package:foodapp/core/colors/colors.dart';
 import 'package:foodapp/core/textfield.dart';
-import 'package:google_fonts/google_fonts.dart';
+// import 'package:foodapp/home_page.dart';
 import 'package:go_router/go_router.dart';
-import 'package:foodapp/main.dart'; // For AppRoutes
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:foodapp/services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -18,24 +20,55 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController passwordController = TextEditingController();
   bool _rememberMe = false;
   bool _isPasswordObscured = true;
-  static const String _rememberMeKey = 'rememberMe';
+  bool _isLoading = false;
+  String? _errorMessage;
+  final AuthService _authService = AuthService();
 
-  @override
-  void initState() {
-    super.initState();
-    _loadRememberMePreference();
-  }
-
-  Future<void> _loadRememberMePreference() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+  Future<void> _login() async {
+    if (!mounted) return;
     setState(() {
-      _rememberMe = prefs.getBool(_rememberMeKey) ?? false;
+      _isLoading = true;
+      _errorMessage = null;
     });
-  }
 
-  Future<void> _saveRememberMePreference(bool value) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_rememberMeKey, value);
+    try {
+      final user = await _authService.signInWithEmailAndPassword(
+        emailController.text.trim(),
+        passwordController.text.trim(),
+        rememberMe: _rememberMe,
+      );
+      if (user != null && mounted) {
+        context.go(AppRoutes.home);
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          // Map common Firebase Auth error codes to user-friendly messages
+          switch (e.code) {
+            case 'user-not-found':
+            case 'wrong-password':
+              _errorMessage = 'Invalid email or password.';
+              break;
+            case 'invalid-email':
+              _errorMessage = 'The email address is not valid.';
+              break;
+            case 'user-disabled':
+              _errorMessage = 'This account has been disabled.';
+              break;
+            default:
+              _errorMessage = 'Login failed: ${e.message}';
+          }
+        });
+      }
+    } on Exception catch (e) { // Catch any other unexpected exceptions
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -62,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
                    Text(
                     'Log In',
                     style: GoogleFonts.sen( // Using Sen Google Font
-                      fontSize: 36,
+                      fontSize: 36, // Consistent font size
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
@@ -154,7 +187,6 @@ class _LoginPageState extends State<LoginPage> {
                                 onChanged: (value) {
                                   setState(() {
                                     _rememberMe = value ?? false;
-                                    _saveRememberMePreference(_rememberMe);
                                   });
                                 },
                                 activeColor: Colors1.primaryOrange,
@@ -200,14 +232,25 @@ class _LoginPageState extends State<LoginPage> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          onPressed: () {},
-                          child: Text(
-                            'LOG IN',
-                            style: GoogleFonts.sen(fontSize: 16, color: Colors.white),
-                          ),
+                          onPressed: _isLoading ? null : _login,
+                          child: _isLoading
+                              ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
+                              : Text(
+                                  'LOG IN',
+                                  style: GoogleFonts.sen(fontSize: 16, color: Colors.white),
+                                ),
                         ),
                       ),
-                      const SizedBox(height: 25),
+                      if (_errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16.0),
+                          child: Text(
+                            _errorMessage!,
+                            style: GoogleFonts.sen(color: Colors.red, fontSize: 14),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
